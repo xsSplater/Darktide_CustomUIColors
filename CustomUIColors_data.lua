@@ -32,6 +32,7 @@ local function get_color_options()
 			{ text = "terminal_text_body",				value = "terminal_text_body" },
 			{ text = "terminal_text_header",			value = "terminal_text_header" },
 			{ text = "terminal_text_body_sub_header",	value = "terminal_text_body_sub_header" },
+			{ text = "online_green",					value = "online_green" },
 		}
 	end
 	return color_options
@@ -39,28 +40,51 @@ end
 
 -- Создаем настройки для виджета
 local function create_widget_settings(menu_name, widget_name, widget_data)
-	local color_options = get_color_options()
+	local settings = {}
 
-	-- Настройка цвета
-	local color_setting = {
-		setting_id = menu_name .. "_" .. widget_name .. "_color",
-		type = "dropdown",
-		default_value = widget_data.default_color or "terminal_grid_background",
-		options = color_options
-	}
-
-	-- Настройка прозрачности (если виджет поддерживает)
-	local settings = {color_setting}
-
-	if widget_data.supports_alpha then
+	-- Проверяем есть ли mapping
+	local has_mapping = widget_data.mapping and table.size(widget_data.mapping) > 0
+	
+	if not has_mapping then
+		-- Обычный виджет (без mapping)
 		table.insert(settings, {
-			setting_id = menu_name .. "_" .. widget_name .. "_alpha",
-			type = "numeric",
-			default_value = widget_data.default_alpha or 255,
-			range = {0, 255},
-			step_size_value = 5,
-			tooltip = "0 = fully transparent,\n255 = fully opaque"
+			setting_id = menu_name .. "_" .. widget_name .. "_color",
+			type = "dropdown",
+			default_value = widget_data.default_color or "terminal_grid_background",
+			options = get_color_options()
 		})
+		
+		if widget_data.supports_alpha then
+			table.insert(settings, {
+				setting_id = menu_name .. "_" .. widget_name .. "_alpha",
+				type = "numeric",
+				default_value = widget_data.default_alpha or 255,
+				range = {0, 255},
+				step_size_value = 5,
+			})
+		end
+	else
+		-- Виджет с объединенным mapping
+		for style_path, map_data in pairs(widget_data.mapping) do
+			-- Настройка цвета
+			table.insert(settings, {
+				setting_id = map_data.color_id,
+				type = "dropdown",
+				default_value = map_data.default_color or widget_data.default_color or "terminal_grid_background",
+				options = get_color_options()
+			})
+			
+			-- Настройка прозрачности
+			if widget_data.supports_alpha then
+				table.insert(settings, {
+					setting_id = map_data.alpha_id,
+					type = "numeric",
+					default_value = map_data.default_alpha or widget_data.default_alpha or 255,
+					range = {0, 255},
+					step_size_value = 5,
+				})
+			end
+		end
 	end
 
 	return settings
@@ -69,10 +93,11 @@ end
 -- Загружаем модули для генерации настроек
 local function load_modules_for_settings()
 	local modules = {}
-	local module_paths = {
-		"Views/CUIC_MainMenuView",
-		-- "Views/CUIC_CraftingView"
-	}
+	local module_paths = mod:io_dofile("CustomUIColors/CustomUIColors_modules")
+	if not module_paths then
+		mod:error("Failed to load module list for settings!")
+		return modules
+	end
 
 	for _, module_path in ipairs(module_paths) do
 		local success, module = pcall(function()
@@ -104,25 +129,33 @@ local function create_menu_settings_group(menu_name, module)
 
 	local group_widgets = {}
 
-	-- Сортируем виджеты по алфавиту для удобства
-	local sorted_widgets = {}
-	for widget_name, _ in pairs(module.WIDGETS) do
-		table.insert(sorted_widgets, widget_name)
-	end
-	table.sort(sorted_widgets)
-
-	for _, widget_name in ipairs(sorted_widgets) do
-		local widget_data = module.WIDGETS[widget_name]
-		
-		-- Создаем группу для каждого виджета
-		local widget_settings = create_widget_settings(menu_name, widget_name, widget_data)
-		
-		if #widget_settings > 0 then
-			table.insert(group_widgets, {
-				setting_id = menu_name .. "_" .. widget_name,
-				type = "group",
-				sub_widgets = widget_settings
-			})
+	-- Если есть WIDGET_ORDER - используем его
+	if module.WIDGET_ORDER then
+		-- Используем ваш порядок
+		for _, widget_name in ipairs(module.WIDGET_ORDER) do
+			local widget_data = module.WIDGETS[widget_name]
+			if widget_data then
+				local widget_settings = create_widget_settings(menu_name, widget_name, widget_data)
+				if #widget_settings > 0 then
+					table.insert(group_widgets, {
+						setting_id = menu_name .. "_" .. widget_name,
+						type = "group",
+						sub_widgets = widget_settings
+					})
+				end
+			end
+		end
+	else
+		-- Или просто в порядке как есть в таблице WIDGETS
+		for widget_name, widget_data in pairs(module.WIDGETS) do
+			local widget_settings = create_widget_settings(menu_name, widget_name, widget_data)
+			if #widget_settings > 0 then
+				table.insert(group_widgets, {
+					setting_id = menu_name .. "_" .. widget_name,
+					type = "group",
+					sub_widgets = widget_settings
+				})
+			end
 		end
 	end
 
@@ -150,8 +183,10 @@ local options = {
 -- Добавляем настройки для каждого меню
 for menu_name, module in pairs(WIDGET_REGISTRY) do
 	local menu_group = create_menu_settings_group(menu_name, module)
-	if menu_group then
-		table.insert(options.options.widgets, menu_group)
+	if menu_group and menu_group.sub_widgets then
+		for _, widget_group in ipairs(menu_group.sub_widgets) do
+			table.insert(options.options.widgets, widget_group)
+		end
 	end
 end
 
@@ -187,7 +222,15 @@ table.insert(options.options.widgets, {
 			function_name = "cb_reload_modules",
 			tooltip = "Reload all menu modules"
 		},
-
+		{
+			setting_id = "generate_widgets",
+			type = "keybind",
+			default_value = {},
+			keybind_trigger = "pressed",
+			keybind_type = "function_call",
+			function_name = "cb_generate_widgets_button",
+			tooltip = "Generate widgets file for current view\nOutput will be shown in console"
+		},
 		{
 			setting_id = "hide_all_elements",
 			type = "keybind",
