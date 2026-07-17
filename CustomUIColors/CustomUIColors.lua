@@ -1,3 +1,84 @@
+--[[-- Хуки для каждого вида - более прямой подход -- РАБОТАЮТ!!! Хоть и кривовато.
+mod:hook_safe("MainMenuView", "_create_widgets", function(self)
+	mod:pcall(function()
+		-- Устанавливаем текущее меню
+		CURRENT_MENU = "main_menu"
+		load_menu_widgets("main_menu")
+		
+		-- Немедленно применяем цвета
+		if self._widgets_by_name then
+			for widget_name, widget_data in pairs(ACTIVE_WIDGETS) do
+				local widget = self._widgets_by_name[widget_name]
+				if widget then
+					apply_color(widget, widget_name)
+				end
+			end
+		end
+	end)
+end)
+
+mod:hook_safe("MainMenuView", "update", function(self)
+	if (mod._color_changed or mod._alpha_changed) and 
+	   CURRENT_MENU == "main_menu" and 
+	   self._widgets_by_name then
+		mod:pcall(function()
+			for widget_name, widget_data in pairs(ACTIVE_WIDGETS) do
+				local widget = self._widgets_by_name[widget_name]
+				if widget then
+					apply_color(widget, widget_name)
+				end
+			end
+			mod._color_changed = false
+			mod._alpha_changed = false
+		end)
+	end
+end)
+
+mod:hook_safe("CraftingView", "_create_widgets", function(self)
+	mod:pcall(function()
+		-- Устанавливаем текущее меню
+		CURRENT_MENU = "crafting"
+		load_menu_widgets("crafting")
+		
+		-- Немедленно применяем цвета
+		if self._widgets_by_name then
+			for widget_name, widget_data in pairs(ACTIVE_WIDGETS) do
+				local widget = self._widgets_by_name[widget_name]
+				if widget then
+					apply_color(widget, widget_name)
+				end
+			end
+		end
+	end)
+end)
+
+mod:hook_safe("CraftingView", "update", function(self)
+	if (mod._color_changed or mod._alpha_changed) and 
+	   CURRENT_MENU == "crafting" and 
+	   self._widgets_by_name then
+		mod:pcall(function()
+			for widget_name, widget_data in pairs(ACTIVE_WIDGETS) do
+				local widget = self._widgets_by_name[widget_name]
+				if widget then
+					apply_color(widget, widget_name)
+				end
+			end
+			mod._color_changed = false
+			mod._alpha_changed = false
+		end)
+	end
+end)
+
+!!! НЕ УДАЛЯТЬ ЭТОТ КОММЕНТАРИЙ!!!
+Игра: WH40k Darkride. Движок: модифицированный FS Stingray. LuaJit 2.1
+Основная задача мода: подмена цветов в интерфейсе для перекрашивания фонов меню и кнопок.
+В выпадающих списках есть все цвета из игры. Списки работают как надо.
+
+-- delay НЕ работает! (mod:delay_function и подобное)
+-- next_frame НЕ работает!
+-- shedule НЕ работает!
+--]]
+
 -- CustomUIColors.lua
 local mod = get_mod("CustomUIColors")
 

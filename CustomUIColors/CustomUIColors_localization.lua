@@ -11,7 +11,7 @@ local function readable(text)
 	return table.concat(tokens, " ")
 end
 
--- Добавляем локализации цветов
+-- Добавляем локализации цветов (для цветных выпадающих списков)
 local function add_color_localizations(localizations)
 	if Color and Color.list then
 		for _, color_name in ipairs(Color.list) do

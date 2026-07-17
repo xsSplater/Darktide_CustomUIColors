@@ -121,7 +121,7 @@ end
 -- Загружаем модули
 local WIDGET_REGISTRY = load_modules_for_settings()
 
--- Создаем группу настроек для меню
+-- Создаем группу настроек для меню (БЕЗ СОРТИРОВКИ ПО АЛФАВИТУ)
 local function create_menu_settings_group(menu_name, module)
 	if not module or not module.WIDGETS then
 		return nil
@@ -129,6 +129,7 @@ local function create_menu_settings_group(menu_name, module)
 
 	local group_widgets = {}
 
+	-- ПОРЯДОК ОПРЕДЕЛЯЕТСЯ ВАМИ В МОДУЛЕ
 	-- Если есть WIDGET_ORDER - используем его
 	if module.WIDGET_ORDER then
 		-- Используем ваш порядок
@@ -180,7 +181,7 @@ local options = {
 	}
 }
 
--- Добавляем настройки для каждого меню
+-- Добавляем настройки для каждого меню (без вложенных категорий)
 for menu_name, module in pairs(WIDGET_REGISTRY) do
 	local menu_group = create_menu_settings_group(menu_name, module)
 	if menu_group and menu_group.sub_widgets then
@@ -190,7 +191,7 @@ for menu_name, module in pairs(WIDGET_REGISTRY) do
 	end
 end
 
--- Добавляем утилиты
+-- Добавляем утилиты (также в вашем порядке)
 table.insert(options.options.widgets, {
 	setting_id = "utility_settings",
 	type = "group",
